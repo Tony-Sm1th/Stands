@@ -1,0 +1,11 @@
+Debug/
+Release/
+build/
+dist/
+logs/
+test/
+*.launch
+outdate/
+.cache/
+.clangd
+compile_commands.json
