@@ -186,12 +186,15 @@ inline void IC_ReadADC_Complete() {
 			IC_Show_Info();
 		}
 	}
-	IC_Center_Of_Gravity();
+
 
 	if (IC_Mode.program_trigger_mode == IC_PROGRAM_TRIGGER_ON) {
 		if (IC_Program_Trigger() == IC_PROGRAM_TRIGGER_NOT_FIRED)
-			return;
+			goto send_from_program_trigger;
+
+			//return;
 	}
+	IC_Center_Of_Gravity();
 	IC_Processing_Timer(STOP);
 
 	//HAL_NVIC_DisableIRQ(EXTI0_IRQn);
@@ -247,6 +250,7 @@ inline void IC_ReadADC_Complete() {
 		memcpy(print_buf,IC_PC.data_from_DDC,(IC_CH_NUM + CG_WORD + CHECK_WORD)*2);
 		processing_is_completed = true;
 	}
+	send_from_program_trigger:
 
 	IC_ADC_To_PC();
 	IC_PC.data_lock = false;
@@ -472,7 +476,7 @@ inline void IC_ADC_To_PC() {
 
         // 1. 128 каналов (uint16) - отправляем как есть, 2 байта на канал
         for (int i = 0; i < IC_CH_NUM; i++) {
-            uint16_t value = IC_PC.data_from_DDC[ch_buf[i]];
+            uint16_t value = print_buf[ch_buf[i]];
             // Копируем 2 байта (little-endian)
             binary_buffer[offset++] = (uint8_t)(value & 0xFF);        // младший байт
             binary_buffer[offset++] = (uint8_t)((value >> 8) & 0xFF); // старший байт
@@ -486,7 +490,7 @@ inline void IC_ADC_To_PC() {
         binary_buffer[offset++] = (uint8_t)((cg_uint >> 24) & 0xFF);
 
         // 3. Проверочное слово (uint16)
-        uint16_t check_word = IC_PC.data_from_DDC[IC_CH_NUM + CG_WORD + CHECK_WORD - 1];
+        uint16_t check_word = print_buf[IC_CH_NUM + CG_WORD + CHECK_WORD - 1];
         binary_buffer[offset++] = (uint8_t)(check_word & 0xFF);
         binary_buffer[offset++] = (uint8_t)((check_word >> 8) & 0xFF);
 
@@ -947,6 +951,7 @@ void IC_Read_cmd_UART(char *buf_str) {
 		__disable_irq();
 		//char dma_buffer[512]; // Размер подберите под ваши нужды
 		//int offset = 0;
+		HAL_IWDG_Refresh(&watch_dog_reset);
 		send_uart  = true;
 		//IC_ADC_To_PC();
 		//		for (int i = 0; i < IC_CH_NUM + CG_WORD + CHECK_WORD; i++) {

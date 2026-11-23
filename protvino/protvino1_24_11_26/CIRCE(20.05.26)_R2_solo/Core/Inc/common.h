@@ -22,6 +22,10 @@ extern UART_HandleTypeDef huart6;	//OUT UART
 #define RE_DE6_Port 	RE_DE_6_GPIO_Port
 #define RE_DE6_Pin 		RE_DE_6_Pin
 
+extern IWDG_HandleTypeDef hiwdg;
+#define watch_dog_reset hiwdg
+
+
 
 extern SPI_HandleTypeDef hspi2;		//CFG
 #define	cfg_spi  hspi2

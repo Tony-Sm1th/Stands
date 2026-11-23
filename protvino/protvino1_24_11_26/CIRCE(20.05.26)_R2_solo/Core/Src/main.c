@@ -47,6 +47,8 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+IWDG_HandleTypeDef hiwdg;
+
 QSPI_HandleTypeDef hqspi;
 
 SD_HandleTypeDef hsd;
@@ -102,6 +104,7 @@ static void MX_USART6_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_QUADSPI_Init(void);
 static void MX_TIM9_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 void Reset_SPI_DMA();
 /* USER CODE END PFP */
@@ -153,6 +156,7 @@ int main(void)
   MX_I2C1_Init();
   MX_QUADSPI_Init();
   MX_TIM9_Init();
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_DMA(&out_huart, (uint8_t*)str, 10);
   //set parse function for uart
@@ -223,8 +227,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -314,6 +319,34 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_64;
+  hiwdg.Init.Reload = 4000;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
 
 }
 
