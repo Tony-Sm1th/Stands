@@ -72,6 +72,7 @@ typedef struct {
 	volatile int32_t temp_adc;
 	volatile uint32_t pulses;
 	volatile uint64_t temp_dose;
+	volatile bool first_entry;
 	 uint8_t mode;
 
 

@@ -13,8 +13,6 @@
 //SMPD API
 
 DOSIMETER_MODE dosimeter_mode = SETTINGS_MODE;
-///
-
 PULSE_cnt_t pcnt_1;
 PULSE_cnt_t pcnt_2;
 PULSE_cnt_t *reg_pcnt;
@@ -39,8 +37,8 @@ uint16_t adc_buf[4];
 SystemFlags_t sf = { .first_entry = true, .start_stop = true, .sync_latch_high =
 false, .sync_latch_low = false };
 SystemState_t ss = { 0 };
-Testing_t ts = { .time_update = 1000 };
-uint8_t 					t_counter = 0;
+Testing_t ts = { .time_update = 1000, .first_entry = true };
+uint8_t t_counter = 0;
 static Timers_t tim = { 0 };
 
 extern DMA_HandleTypeDef hdma_usart3_tx;
@@ -189,17 +187,19 @@ void dose_parse_data(uint8_t *data) {
 	switch (*data) {
 	case 1:
 		dosimeter_mode = SYNC_MODE;
-		__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
-		ts.adc_dose = 0;
-		ts.pulse_dose = 0;
-		ss.last_pulses = 0;
+//		__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
+//		ts.adc_dose = 0;
+//		ts.pulse_dose = 0;
+//		ss.last_pulses = 0;
+		sf.sync_latch_low = false;
 		//ss.last_adc = 0;
 		break;
 	case 0:
-		__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
-		ts.adc_dose = 0;
-		ts.pulse_dose = 0;
+//		__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
+//		ts.adc_dose = 0;
+//		ts.pulse_dose = 0;
 		dosimeter_mode = SETTINGS_MODE;
+		sf.sync_latch_high = false;
 		break;
 	}
 }
@@ -249,39 +249,35 @@ static void send_data_test() {
 
 static void send_data_sync() {
 	int64_t adc_per_pulse =
-				(ts.pulse_dose > 0) ? (ts.adc_dose / (int64_t)ts.pulse_dose) : 0;
+			(ts.pulse_dose > 0) ? (ts.adc_dose / (int64_t) ts.pulse_dose) : 0;
 
 	static int64_t prev_adc = 0;
 	double dev_percent = 0.0;
 
 	// Защита от деления на ноль при самом первом вызове функции
 	if (prev_adc != 0) {
-		dev_percent = ((double)((int64_t)ts.adc_dose - prev_adc) / (double)prev_adc) * 100.0;
+		dev_percent = ((double) ((int64_t) ts.adc_dose - prev_adc)
+				/ (double) prev_adc) * 100.0;
 	}
 
-	int n = snprintf(buf, sizeof(buf), "[%lu]\n"
-			"          %-15s %-10s\n"
-			"adose     %-15llu %-15.3f\n"
-			"pdose     %-15.3f %-15lld\n" // Исправлены спецификаторы под ваши типы данных
-			"\n"
-			"dev       %.2f%%\n"         // Вывод процентов (%% печатает один знак %)
-			"adc/pulse %lld\n"
-			"\n",
-			ts.cnt++,
-			"parrots",
-			"pulses",
-			(unsigned long long)ts.adc_dose,
-			(double)ts.adc_dose / (double)MAX_ADC,
-			(double)ts.pulse_dose * (double)MAX_ADC,
-			(long long)ts.pulse_dose,
-			dev_percent,
-			(long long)adc_per_pulse);
+	int n = snprintf(buf, sizeof(buf),
+			"[%lu]\n"
+					"          %-15s %-10s\n"
+					"adose     %-15llu %-15.3f\n"
+					"pdose     %-15.3f %-15lld\n" // Исправлены спецификаторы под ваши типы данных
+					"\n"
+					"dev       %.2f%%\n"// Вывод процентов (%% печатает один знак %)
+					"adc/pulse %lld\n"
+					"\n", ts.cnt++, "parrots", "pulses",
+			(unsigned long long) ts.adc_dose,
+			(double) ts.adc_dose / (double) MAX_ADC,
+			(double) ts.pulse_dose * (double) MAX_ADC,
+			(long long) ts.pulse_dose, dev_percent, (long long) adc_per_pulse);
 
-	print_UART(out_uart, (uint8_t*)buf, n);
+	print_UART(out_uart, (uint8_t*) buf, n);
 	t_counter = 0;
 	prev_adc = ts.adc_dose;
 }
-
 
 inline void Read_ADC() {
 	if (HAL_SPI_Receive(&adc_spi, (uint8_t*) &(ss.data), 1, 1000) != HAL_OK) {
@@ -301,13 +297,20 @@ inline void Read_ADC() {
 		switch (dosimeter_mode) {
 		case SYNC_MODE:
 			if (sf.start_stop == false) {
+				HAL_IWDG_Refresh(&watch_dog_reset);
 				//HAL_GPIO_WritePin(L_ERROR_GPIO_Port, L_ERROR_Pin, SET);
 				if (sf.sync_latch_low == true) {
-					__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
+					if (ts.first_entry) {
+						ss.last_adc = ss.data;
+						__HAL_TIM_SET_COUNTER(&pulse_cnt, 0);
+						ts.adc_dose = 0;
+						ts.pulse_dose = 0;
+						ss.last_pulses = 0;
+						ts.first_entry = false;
+						return;
+					}
 					//HAL_GPIO_WritePin(L_ERROR_GPIO_Port, L_ERROR_Pin, SET);
-					ts.adc_dose = 0;
-					ts.pulse_dose = 0;
-					ss.last_pulses = 0;
+
 					//ss.last_adc = 0;
 					sf.sync_latch_low = false;
 					//HAL_GPIO_TogglePin(L_ERROR_GPIO_Port, L_ERROR_Pin);
@@ -321,25 +324,26 @@ inline void Read_ADC() {
 					//ts.pulse_dose -= ts.temp_pulses;
 					send_data_sync();
 					//HAL_GPIO_WritePin(L_ERROR_GPIO_Port, L_ERROR_Pin, RESET);
-
+					ss.last_adc = ss.data;
 
 					//ts.temp_pulses = 0;
 					//ts.temp_adc = 0;
 					sf.sync_latch_high = false;
+					ts.first_entry = true;
 				}
 			}
 			break;
 		case SETTINGS_MODE:
+			HAL_IWDG_Refresh(&watch_dog_reset);
 			Process_ADC_data_for_test(ss.data);
 			//Reset_counters();
 			break;
 		default:
 			break;
-			//ss.last_adc = ss.data;
 
 		}
 	}
-	ss.last_adc = ss.data;
+	//ss.last_adc = ss.data;
 
 //	if (ts.start == true) {
 //		Process_ADC_data_for_test(ss.data);
@@ -369,7 +373,6 @@ void Send_data_sync() {
 //	{
 //		buf[i + 1] = 100;
 //	}
-
 	send_data((uint8_t* )buf, 14, rs485, .dma = true, .crc = true);
 }
 
@@ -421,6 +424,7 @@ void Process_ADC_data_sync(uint16_t data) {
 	}
 
 	ts.adc_dose += (int64_t) delta_adc;
+
 	ss.last_adc = data;
 	// эталон по импульсам
 	ts.pulse_dose = ts.pulses;

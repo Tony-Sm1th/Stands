@@ -36,6 +36,9 @@ extern TIM_HandleTypeDef htim2;
 #define adc_timer 		htim2
 #define adc_channel		TIM_CHANNEL_1
 
+extern IWDG_HandleTypeDef hiwdg;
+#define watch_dog_reset hiwdg
+
 extern SPI_HandleTypeDef hspi1;
 #define adc_spi			hspi1
 
